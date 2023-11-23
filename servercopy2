@@ -1,0 +1,162 @@
+import socket
+import select
+counter = 0
+MSG_LEN_BYTE = 2
+NICK_NAME_LEN_BYTE = 2
+ROOM_NAME_LEN_BYTE = 2
+
+# Local variables
+rooms = [[{"room name": "lobby", "password": ""}], [], [], [], [], [], [], [], [], []]
+socket_list = []
+client_list = []
+# room_list = []
+
+
+def broadcastMsg(msg, room_name, nick, client_list, client):
+    msg_len = len(nick) + 2 + 2 + len(room_name) + len(msg)
+    if msg_len < 10:
+        msg_len = "0{}".format(msg_len)
+    else:
+        pass
+    if len(nick) == 10:
+        nick_len = "10"
+    else:
+        nick_len = "0{}".format(len(nick))
+    if len(room_name) > 10:
+        room_name_len = len(room_name)
+    else:
+        room_name_len = "0{}".format(len(room_name))
+    msg_to_send = "{}{}{}{}{}{}{}".format(1, msg_len, room_name_len,  nick_len, room_name, nick, msg)
+    for i in client_list:
+        if i is not client:
+            print(i)
+            i.send(msg_to_send.encode())
+
+
+def answer(num, msg):
+    msg_len = 2 + len(room_name) + len(msg)
+    if msg_len < 10:
+        msg_len = "0{}".format(msg_len)
+    if len(room_name) > 10:
+        room_name_len = len(room_name)
+    else:
+        room_name_len = "0{}".format(len(room_name))
+    msg_to_send = "{}{}{}{}{}".format(num, msg_len, room_name_len, room_name, msg)
+    print(msg_to_send)
+    client.send(msg_to_send.encode())
+    print(client)
+
+
+
+sock_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock_server.bind(("127.0.0.1", 8087))
+sock_server.listen(3)
+
+socket_list.append(sock_server)
+
+while True:
+    # waiting for messages..
+    read_ready, _, _ = select.select(socket_list, [], [])
+    for i in read_ready:
+        if i is sock_server:
+            # Server accepting new clients
+            client, addr = sock_server.accept()
+            rooms[0].append(client)
+            socket_list.append(client)
+            client_list.append(client)
+            print(rooms)
+            print("New connection", addr)
+        else:
+            # Message from client handler
+            msg_type = int(i.recv(1).decode())
+            print(msg_type)
+
+            if msg_type == 1:
+                nick_name_len = int(i.recv(2).decode())
+                nick_name = i.recv(nick_name_len).decode()
+                # new_client = [nick_name, addr]
+                # lobby_list.append(new_client)
+                # print(new_client)
+                # print(lobby_list)
+            if msg_type == 2:
+                msg_len = int(i.recv(2).decode())
+                room_name_len = int(i.recv(2).decode())
+                nick_name_len = int(i.recv(2).decode())
+                room_name = i.recv(room_name_len).decode()
+                client_nick_name = i.recv(nick_name_len).decode()
+                msg = "False"
+                for room in rooms:
+                    #print(room)
+                    try:
+                        if room[0]["room name"] == room_name:
+                            room.append(i)
+                            print(room)
+                            msg = "True"
+                            break
+                    except:
+                        pass
+                msg_len = ROOM_NAME_LEN_BYTE + len(room_name) + len(msg)
+                if len(room_name) > 10:
+                    room_name_len = len(room_name)
+                else:
+                    room_name_len = "0{}".format(len(room_name))
+                i.send("{}{}{}{}{}".format(2, msg_len, room_name_len, room_name, msg).encode())
+                # else:
+                #     if len(room_name) > 10:
+                #         room_name_len = len(room_name)
+                #     else:
+                #         room_name_len = "0{}".format(len(room_name))
+                #     result = "False"
+                #     len_msg = ROOM_NAME_LEN_BYTE + len(room_name) + len(result)
+                #     client.send("{}{}{}{}{}".format(2, len_msg, room_name_len, room_name, result).encode())
+            if msg_type == 3:
+                pass
+            if msg_type == 4:
+                msg_len = int(i.recv(2).decode())
+                room_name_len = int(i.recv(2).decode())
+                password_len = int(i.recv(1).decode())
+                room_name = i.recv(room_name_len).decode()
+                password = i.recv(password_len).decode()
+                new_room = {"room name": room_name, "password": password}
+                # if len(room_list) < 9:
+                #     room_list.append(new_room)
+                #     answer(3, "True")
+                # else:
+                #     answer(3, "False")
+                result = "False"
+                for room in rooms:
+                    if room == []:
+                        room.append(new_room)
+                        result = "True"
+                        break
+                    else:
+                        continue
+                if result == "True":
+                    answer(3, "True")
+                    print(result)
+                    print(rooms)
+                else:
+                    answer(3, "False")
+
+            if msg_type == 5:
+                msg_len = int(i.recv(2).decode())
+                room_name_len = int(i.recv(2).decode())
+                password_len = int(i.recv(2).decode())
+                room_name = i.recv(room_name_len).decode()
+                password = i.recv(password_len).decode()
+            if msg_type == 6:
+                msg_len = int(i.recv(2).decode())
+                room_name_len = int(i.recv(2).decode())
+                nick_name_len = int(i.recv(2).decode())
+                room_name = i.recv(room_name_len).decode()
+                nick_name = i.recv(nick_name_len).decode()
+                msg = i.recv(msg_len - 2 - 2 - room_name_len - nick_name_len).decode()
+                broadcastMsg(msg, room_name, nick_name, client_list, i)
+            if msg_type == 7:
+                pass
+            if msg_type == 8:
+                pass
+
+
+
+
